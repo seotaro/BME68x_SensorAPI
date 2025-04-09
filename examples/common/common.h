@@ -83,6 +83,8 @@ void bme68x_delay_us(uint32_t period, void *intf_ptr);
  */
 void bme68x_check_rslt(const char api_name[], int8_t rslt);
 
+uint32_t get_millis(void);
+
 #ifdef __cplusplus
 }
 #endif /*__cplusplus */
