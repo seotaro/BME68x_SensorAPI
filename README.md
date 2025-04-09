@@ -1,4 +1,4 @@
-# BME68X Sensor API
+# BME68X Sensor API on Raspberry Pi
 
 > Bosch Sensortec's BME680 and BME688 sensor API
 
