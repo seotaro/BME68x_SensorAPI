@@ -704,8 +704,6 @@ typedef void (*bme68x_delay_us_fptr_t)(uint32_t period, void *intf_ptr);
  * @brief Interface selection Enumerations
  */
 enum bme68x_intf {
-    /*! SPI interface */
-    BME68X_SPI_INTF,
     /*! I2C interface */
     BME68X_I2C_INTF
 };

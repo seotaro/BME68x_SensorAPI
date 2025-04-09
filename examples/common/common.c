@@ -4,81 +4,98 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+ /**
+ * Modified by Taro Seo
+ * 
+ * Original source: https://github.com/BoschSensortec/BME68x-Sensor-API
+ * Changes:
+ * - Modified for Raspberry Pi compatibility
+ * - Removed COINES implementations
+ * - Removed SPI implementations
+ */
+
 #include <stdint.h>
-#include <stdlib.h>
 #include <stdio.h>
-
+#include <stdlib.h>
+#include <string.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/ioctl.h>
+#include <linux/i2c-dev.h>
+#include <time.h>
 #include "bme68x.h"
-#include "coines.h"
-#include "common.h"
-
-/******************************************************************************/
-/*!                 Macro definitions                                         */
-/*! BME68X shuttle board ID */
-#define BME68X_SHUTTLE_ID  0x93
 
 /******************************************************************************/
 /*!                Static variable definition                                 */
-static uint8_t dev_addr;
+/*! I2C device file handle */
+static int i2c_fd = -1;
 
 /******************************************************************************/
 /*!                User interface functions                                   */
 
 /*!
- * I2C read function map to COINES platform
+ * I2C read function
  */
 BME68X_INTF_RET_TYPE bme68x_i2c_read(uint8_t reg_addr, uint8_t *reg_data, uint32_t len, void *intf_ptr)
 {
-    uint8_t device_addr = *(uint8_t*)intf_ptr;
-
-    (void)intf_ptr;
-
-    return coines_read_i2c(COINES_I2C_BUS_0, device_addr, reg_addr, reg_data, (uint16_t)len);
+    uint8_t dev_addr = *(uint8_t*)intf_ptr;
+    
+    if (i2c_fd < 0) {
+        return -1;
+    }
+    
+    if (ioctl(i2c_fd, I2C_SLAVE, dev_addr) < 0) {
+        return -1;
+    }
+    
+    if (write(i2c_fd, &reg_addr, 1) != 1) {
+        return -1;
+    }
+    
+    if (read(i2c_fd, reg_data, len) != len) {
+        return -1;
+    }
+    
+    return 0;
 }
 
-/*!
- * I2C write function map to COINES platform
- */
 BME68X_INTF_RET_TYPE bme68x_i2c_write(uint8_t reg_addr, const uint8_t *reg_data, uint32_t len, void *intf_ptr)
 {
-    uint8_t device_addr = *(uint8_t*)intf_ptr;
-
-    (void)intf_ptr;
-
-    return coines_write_i2c(COINES_I2C_BUS_0, device_addr, reg_addr, (uint8_t *)reg_data, (uint16_t)len);
+    uint8_t dev_addr = *(uint8_t*)intf_ptr;
+    uint8_t *buf = malloc(len + 1);
+    
+    if (buf == NULL) {
+        return -1;
+    }
+    
+    if (i2c_fd < 0) {
+        free(buf);
+        return -1;
+    }
+    
+    if (ioctl(i2c_fd, I2C_SLAVE, dev_addr) < 0) {
+        free(buf);
+        return -1;
+    }
+    
+    buf[0] = reg_addr;
+    memcpy(buf + 1, reg_data, len);
+    
+    if (write(i2c_fd, buf, len + 1) != len + 1) {
+        free(buf);
+        return -1;
+    }
+    
+    free(buf);
+    return 0;
 }
 
 /*!
- * SPI read function map to COINES platform
- */
-BME68X_INTF_RET_TYPE bme68x_spi_read(uint8_t reg_addr, uint8_t *reg_data, uint32_t len, void *intf_ptr)
-{
-    uint8_t device_addr = *(uint8_t*)intf_ptr;
-
-    (void)intf_ptr;
-
-    return coines_read_spi(COINES_SPI_BUS_0, device_addr, reg_addr, reg_data, (uint16_t)len);
-}
-
-/*!
- * SPI write function map to COINES platform
- */
-BME68X_INTF_RET_TYPE bme68x_spi_write(uint8_t reg_addr, const uint8_t *reg_data, uint32_t len, void *intf_ptr)
-{
-    uint8_t device_addr = *(uint8_t*)intf_ptr;
-
-    (void)intf_ptr;
-
-    return coines_write_spi(COINES_SPI_BUS_0, device_addr, reg_addr, (uint8_t *)reg_data, (uint16_t)len);
-}
-
-/*!
- * Delay function map to COINES platform
+ * Delay function
  */
 void bme68x_delay_us(uint32_t period, void *intf_ptr)
 {
-    (void)intf_ptr;
-    coines_delay_usec(period);
+    usleep(period);
 }
 
 void bme68x_check_rslt(const char api_name[], int8_t rslt)
@@ -113,73 +130,24 @@ void bme68x_check_rslt(const char api_name[], int8_t rslt)
     }
 }
 
-int8_t bme68x_interface_init(struct bme68x_dev *bme, uint8_t intf)
+int8_t bme68x_interface_init(struct bme68x_dev *bme)
 {
     int8_t rslt = BME68X_OK;
-    struct coines_board_info board_info;
-
-    if (bme != NULL)
-    {
-        int16_t result = coines_open_comm_intf(COINES_COMM_INTF_USB, NULL);
-        if (result < COINES_SUCCESS)
-        {
-            printf(
-                "\n Unable to connect with Application Board ! \n" " 1. Check if the board is connected and powered on. \n" " 2. Check if Application Board USB driver is installed. \n"
-                " 3. Check if board is in use by another application. (Insufficient permissions to access USB) \n");
-            exit(result);
+    static uint8_t dev_addr;
+    
+    if (bme != NULL) {
+        // dev_addr = BME68X_I2C_ADDR_LOW;     // 0x76
+        dev_addr = BME68X_I2C_ADDR_HIGH;    // 0x77
+        i2c_fd = open("/dev/i2c-1", O_RDWR);
+        if (i2c_fd < 0) {
+            perror("Failed to open I2C device");
+            return -1;
         }
-
-        result = coines_get_board_info(&board_info);
-
-#if defined(PC)
-        setbuf(stdout, NULL);
-#endif
-
-        if (result == COINES_SUCCESS)
-        {
-            if ((board_info.shuttle_id != BME68X_SHUTTLE_ID))
-            {
-                printf(
-                    "! Warning invalid sensor shuttle : 0x%x (Expected : 0x%x) \n ," "This application will not support this sensor \n",
-                    board_info.shuttle_id,
-                    BME68X_SHUTTLE_ID);
-            }
-        }
-
-        (void)coines_set_shuttleboard_vdd_vddio_config(0, 0);
-        coines_delay_msec(100);
-
-        /* Bus configuration : I2C */
-        if (intf == BME68X_I2C_INTF)
-        {
-            printf("I2C Interface\n");
-            dev_addr = BME68X_I2C_ADDR_LOW;
-            bme->read = bme68x_i2c_read;
-            bme->write = bme68x_i2c_write;
-            bme->intf = BME68X_I2C_INTF;
-
-            /* SDO pin is made low */
-            (void)coines_set_pin_config(COINES_SHUTTLE_PIN_SDO, COINES_PIN_DIRECTION_OUT, COINES_PIN_VALUE_LOW);
-
-            (void)coines_config_i2c_bus(COINES_I2C_BUS_0, COINES_I2C_STANDARD_MODE);
-        }
-        /* Bus configuration : SPI */
-        else if (intf == BME68X_SPI_INTF)
-        {
-            printf("SPI Interface\n");
-            dev_addr = COINES_SHUTTLE_PIN_7;
-            bme->read = bme68x_spi_read;
-            bme->write = bme68x_spi_write;
-            bme->intf = BME68X_SPI_INTF;
-            (void)coines_config_spi_bus(COINES_SPI_BUS_0, COINES_SPI_SPEED_7_5_MHZ, COINES_SPI_MODE0);
-        }
-
-        coines_delay_msec(100);
-
-        (void)coines_set_shuttleboard_vdd_vddio_config(3300, 3300);
-
-        coines_delay_msec(100);
-
+        
+        bme->read = bme68x_i2c_read;
+        bme->write = bme68x_i2c_write;
+        bme->intf = BME68X_I2C_INTF;
+        
         bme->delay_us = bme68x_delay_us;
         bme->intf_ptr = &dev_addr;
         bme->amb_temp = 25; /* The ambient temperature in deg C is used for defining the heater temperature */
@@ -192,15 +160,12 @@ int8_t bme68x_interface_init(struct bme68x_dev *bme, uint8_t intf)
     return rslt;
 }
 
-void bme68x_coines_deinit(void)
+
+// Function to get current time in milliseconds
+uint32_t get_millis(void)
 {
-    (void)fflush(stdout);
-
-    (void)coines_set_shuttleboard_vdd_vddio_config(0, 0);
-    coines_delay_msec(1000);
-
-    /* Coines interface reset */
-    coines_soft_reset();
-    coines_delay_msec(1000);
-    (void)coines_close_comm_intf(COINES_COMM_INTF_USB, NULL);
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (uint32_t)(ts.tv_sec * 1000 + ts.tv_nsec / 1000000);
 }
+

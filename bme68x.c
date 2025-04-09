@@ -191,17 +191,7 @@ int8_t bme68x_set_regs(const uint8_t *reg_addr, const uint8_t *reg_data, uint32_
             /* Interleave the 2 arrays */
             for (index = 0; index < len; index++)
             {
-                if (dev->intf == BME68X_SPI_INTF)
-                {
-                    /* Set the memory page */
-                    rslt = set_mem_page(reg_addr[index], dev);
-                    tmp_buff[(2 * index)] = reg_addr[index] & BME68X_SPI_WR_MSK;
-                }
-                else
-                {
-                    tmp_buff[(2 * index)] = reg_addr[index];
-                }
-
+                tmp_buff[(2 * index)] = reg_addr[index];
                 tmp_buff[(2 * index) + 1] = reg_data[index];
             }
 
@@ -239,16 +229,6 @@ int8_t bme68x_get_regs(uint8_t reg_addr, uint8_t *reg_data, uint32_t len, struct
     rslt = null_ptr_check(dev);
     if ((rslt == BME68X_OK) && reg_data)
     {
-        if (dev->intf == BME68X_SPI_INTF)
-        {
-            /* Set the memory page */
-            rslt = set_mem_page(reg_addr, dev);
-            if (rslt == BME68X_OK)
-            {
-                reg_addr = reg_addr | BME68X_SPI_RD_MSK;
-            }
-        }
-
         dev->intf_rslt = dev->read(reg_addr, reg_data, len, dev->intf_ptr);
         if (dev->intf_rslt != 0)
         {
@@ -278,11 +258,6 @@ int8_t bme68x_soft_reset(struct bme68x_dev *dev)
     rslt = null_ptr_check(dev);
     if (rslt == BME68X_OK)
     {
-        if (dev->intf == BME68X_SPI_INTF)
-        {
-            rslt = get_mem_page(dev);
-        }
-
         /* Reset the device */
         if (rslt == BME68X_OK)
         {
@@ -292,12 +267,6 @@ int8_t bme68x_soft_reset(struct bme68x_dev *dev)
             {
                 /* Wait for 5ms */
                 dev->delay_us(BME68X_PERIOD_RESET, dev->intf_ptr);
-
-                /* After reset get the memory page */
-                if (dev->intf == BME68X_SPI_INTF)
-                {
-                    rslt = get_mem_page(dev);
-                }
             }
         }
     }

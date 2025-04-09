@@ -1,15 +1,34 @@
-COINES_INSTALL_PATH ?= ../../../..
+CC = gcc
+CFLAGS = -g -Wall -Wextra
+INCLUDES = -I. -I../common -I../..
+LIBS = -lrt
 
-EXAMPLE_FILE ?= self_test.c
+TARGET = self_test
+SOURCES = self_test.c ../common/common.c ../../bme68x.c
 
-API_LOCATION ?= ../..
+OBJECTS = $(SOURCES:.c=.o)
 
-C_SRCS += \
-$(API_LOCATION)/bme68x.c \
-../common/common.c
+all: $(TARGET)
 
-INCLUDEPATHS += \
-$(API_LOCATION) \
-../common
+$(TARGET): $(OBJECTS)
+	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $^ $(LIBS)
 
-include $(COINES_INSTALL_PATH)/coines.mk
+%.o: %.c
+	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
+
+clean:
+	rm -f $(TARGET) $(OBJECTS)
+
+help:
+	@echo "Usage: make [target]"
+	@echo "Targets:"
+	@echo "  all        Build the BME68X forced mode example (default)"
+	@echo "  clean      Remove compiled files"
+	@echo "  help       Display this help message"
+
+depend:
+	$(CC) -MM $(CFLAGS) $(INCLUDES) $(SOURCES) > .depend
+
+-include .depend
+
+.PHONY: all clean help depend
