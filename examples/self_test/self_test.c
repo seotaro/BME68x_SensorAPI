@@ -5,11 +5,21 @@
  *
  */
 
+/**
+ * Modified by Taro Seo
+ * 
+ * Original source: https://github.com/BoschSensortec/BME68x-Sensor-API
+ * Changes:
+ * - Modified for Raspberry Pi compatibility
+ * - Removed COINES implementations
+ * - Removed SPI implementations
+ */
+
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "bme68x.h"
 #include "common.h"
-#include "coines.h"
 
 /***********************************************************************/
 /*                         Test code                                   */
@@ -20,11 +30,8 @@ int main(void)
     struct bme68x_dev bme;
     int8_t rslt;
 
-    /* Interface preference is updated as a parameter
-     * For I2C : BME68X_I2C_INTF
-     * For SPI : BME68X_SPI_INTF
-     */
-    rslt = bme68x_interface_init(&bme, BME68X_SPI_INTF);
+    /* Interface preference - using I2C for Raspberry Pi */
+    rslt = bme68x_interface_init(&bme);
     bme68x_check_rslt("bme68x_interface_init", rslt);
 
     rslt = bme68x_init(&bme);
@@ -43,7 +50,6 @@ int main(void)
         printf("Self-test failed\n");
     }
 
-    bme68x_coines_deinit();
 
     return rslt;
 }

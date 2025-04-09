@@ -1,0 +1,28 @@
+{
+  "tasks": [
+    {
+      "label": "build active file",
+      "type": "shell",
+      "command": "gcc",
+      "args": [
+        "-fdiagnostics-color=always",
+        "-g",
+        "${file}",
+        "-o",
+        "${fileDirname}/${fileBasenameNoExtension}",
+        "${workspaceFolder}/examples/common/common.c",
+        "${workspaceFolder}/bme68x.c",
+        "-I",
+        "${workspaceFolder}/examples/common",
+        "-I",
+        "${workspaceFolder}"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    }
+  ],
+  "version": "2.0.0"
+}

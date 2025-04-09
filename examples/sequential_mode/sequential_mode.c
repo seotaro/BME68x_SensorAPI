@@ -5,11 +5,22 @@
  *
  */
 
+/**
+ * Modified by Taro Seo
+ * 
+ * Original source: https://github.com/BoschSensortec/BME68x-Sensor-API
+ * Changes:
+ * - Modified for Raspberry Pi compatibility
+ * - Removed COINES implementations
+ * - Removed SPI implementations
+ */
+
 #include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
 
 #include "bme68x.h"
 #include "common.h"
-#include "coines.h"
 
 /***********************************************************************/
 /*                         Macros                                      */
@@ -40,11 +51,8 @@ int main(void)
     /* Heating duration in milliseconds */
     uint16_t dur_prof[10] = { 100, 100, 100, 100, 100, 100, 100, 100, 100, 100 };
 
-    /* Interface preference is updated as a parameter
-     * For I2C : BME68X_I2C_INTF
-     * For SPI : BME68X_SPI_INTF
-     */
-    rslt = bme68x_interface_init(&bme, BME68X_SPI_INTF);
+    /* Interface preference - using I2C for Raspberry Pi */
+    rslt = bme68x_interface_init(&bme);
     bme68x_check_rslt("bme68x_interface_init", rslt);
 
     rslt = bme68x_init(&bme);
@@ -84,7 +92,7 @@ int main(void)
         del_period = bme68x_get_meas_dur(BME68X_SEQUENTIAL_MODE, &conf, &bme) + (heatr_conf.heatr_dur_prof[0] * 1000);
         bme.delay_us(del_period, bme.intf_ptr);
 
-        time_ms = coines_get_millis();
+        time_ms = get_millis();
 
         rslt = bme68x_get_data(BME68X_SEQUENTIAL_MODE, data, &n_fields, &bme);
         bme68x_check_rslt("bme68x_get_data", rslt);
@@ -118,8 +126,6 @@ int main(void)
             sample_count++;
         }
     }
-
-    bme68x_coines_deinit();
 
     return 0;
 }
